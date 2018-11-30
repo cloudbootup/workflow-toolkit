@@ -1,0 +1,26 @@
+{
+  "license": "MIT",
+  "author": "david karapetyan",
+  "email": "artisan@cloudbootup.com",
+  "dependencies": {
+    "compression": "latest",
+    "etag": "latest",
+    "express": "latest",
+    "express-session": "latest",
+    "mime": "latest",
+    "pg": "latest",
+    "winston": "latest"
+  },
+  "devDependencies": {
+    "@types/busboy": "latest",
+    "@types/compression": "latest",
+    "@types/etag": "latest",
+    "@types/express": "latest",
+    "@types/express-session": "latest",
+    "@types/mime": "latest",
+    "@types/node": "latest",
+    "@types/pg": "latest",
+    "@types/winston": "latest",
+    "typescript": "latest"
+  }
+}

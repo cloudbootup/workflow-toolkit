@@ -1,0 +1,9 @@
+secrets
+node_modules
+certificate
+*.js
+*.map
+*.d.ts
+*.tar.gz
+flyway-*
+*.swp
