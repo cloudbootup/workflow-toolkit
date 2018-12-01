@@ -18,8 +18,8 @@
       "es2015"
     ]
   },
-  "files": [
-    "./app.ts"
+  "include": [
+    "**/*.ts"
   ],
   "exclude": [
     "./node_modules"
