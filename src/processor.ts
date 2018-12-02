@@ -29,14 +29,26 @@ export type ProcessorMessage = DoneMessage | ErrorMessage | RetryMessage | NewWo
 // Make sure we actually have a message for each type
 { const _: common.Eq<ProcessorMessage["type"], MessageType> = true; }
 
-interface Mapping {
-  work: dispatcher.WorkMessage
-  retry: dispatcher.RetryMessage
-  exit: dispatcher.ExitMessage
+export interface ClientMapping {
+  done: DoneMessage
+  error: ErrorMessage
+  retry: RetryMessage
+  new: NewWorkMessage
 }
+{
+  // Make sure every message type is represented
+  const _: common.Eq<keyof ClientMapping, MessageType> = true;
+  // Make sure the mapping is correct so we don't accidentally map 'new' to 'done'
+  const __: { [K in keyof ClientMapping]: common.Eq<K, ClientMapping[K]["type"]> } = {
+    done: true,
+    error: true,
+    retry: true,
+    new: true
+  };
+}
+
 type DispatcherMessageTypes = dispatcher.DispatcherMessage["type"];
-{ const _: common.Eq<keyof Mapping, DispatcherMessageTypes> = true }; // Compiler will complain if this is not true
-type HandlerMapping<K extends DispatcherMessageTypes> = (m: Mapping[K]) => void;
+type HandlerMapping<K> = K extends DispatcherMessageTypes ? (m: dispatcher.ClientMapping[K]) => void : never;
 type HandlerMap = { [K in DispatcherMessageTypes]: HandlerMapping<K> };
 
 // This should never happen and is used as the fallback in switch/case

@@ -30,16 +30,25 @@ export interface ExitMessage extends Message<'exit', -1> { }
 export type DispatcherMessage = WorkMessage | RetryMessage | ExitMessage
 { const _: common.Eq<DispatcherMessage["type"], MessageType> = true; }
 
-// Verify at compile time that we handle all the relevant message types
-interface Mapping {
-  error: processor.ErrorMessage
-  done: processor.DoneMessage
-  retry: processor.RetryMessage
-  new: processor.NewWorkMessage
+export interface ClientMapping {
+  exit: ExitMessage
+  retry: RetryMessage
+  work: WorkMessage
 }
+{
+  // Make sure every message type is represented
+  const _: common.Eq<keyof ClientMapping, MessageType> = true;
+  // Make sure the keys and types actually match so we don't accidentally map 'work' to 'done'
+  const __: { [K in keyof ClientMapping]: common.Eq<K, ClientMapping[K]["type"]> } = {
+    exit: true,
+    retry: true,
+    work: true
+  }
+}
+
+// Verify at compile time that we handle all the relevant message types
 type ProcessorMessageTypes = processor.ProcessorMessage["type"];
-{ const _: common.Eq<keyof Mapping, ProcessorMessageTypes> = true; }
-type HandlerMapping<K extends ProcessorMessageTypes> = (m: Mapping[K]) => void;
+type HandlerMapping<K> = K extends ProcessorMessageTypes ? (m: processor.ClientMapping[K]) => void : never;
 type HandlerMap = { [K in ProcessorMessageTypes]: HandlerMapping<K> };
 
 // Default number of workers to spawn if we are not given one
