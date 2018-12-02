@@ -4,24 +4,24 @@ import { DispatcherMessage } from './dispatcher';
 type MessageType = 'done' | 'error' | 'retry' | 'new';
 
 // Every message must have an id and a type
-interface Message<S extends MessageType> {
-  id: S extends 'new' ? -1 : number
+interface Message<S extends MessageType, I extends number> {
+  id: I
   type: S
 }
 
 // Tells the dispatcher we are done
-export interface DoneMessage extends Message<'done'> { }
+export interface DoneMessage extends Message<'done', number> { }
 
 // Tells the dispatcher there was an error
-export interface ErrorMessage extends Message<'error'> {
+export interface ErrorMessage extends Message<'error', number> {
   message: string
 }
 
 // This tells the dispatcher we want to retry this work again
-export interface RetryMessage extends Message<'retry'> { }
+export interface RetryMessage extends Message<'retry', number> { }
 
 // Tells the dispatcher to add and distribute new work
-export interface NewWorkMessage extends Message<'new'> { }
+export interface NewWorkMessage extends Message<'new', -1> { }
 
 // All the different message types the dispatcher should expect from us
 export type ProcessorMessage = DoneMessage | ErrorMessage | RetryMessage | NewWorkMessage;
