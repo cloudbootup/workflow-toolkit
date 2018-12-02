@@ -1,4 +1,5 @@
 import * as dispatcher from './dispatcher';
+import * as common from './common';
 
 // The types of messages we'll be working with
 type MessageType = 'done' | 'error' | 'retry' | 'new';
@@ -25,13 +26,17 @@ export interface NewWorkMessage extends Message<'new', -1> { }
 
 // All the different message types the dispatcher should expect from us
 export type ProcessorMessage = DoneMessage | ErrorMessage | RetryMessage | NewWorkMessage;
+// Make sure we actually have a message for each type
+{ const _: common.Eq<ProcessorMessage["type"], MessageType> = true; }
 
+interface Mapping {
+  work: dispatcher.WorkMessage
+  retry: dispatcher.RetryMessage
+  exit: dispatcher.ExitMessage
+}
 type DispatcherMessageTypes = dispatcher.DispatcherMessage["type"];
-type HandlerMapping<K extends DispatcherMessageTypes> =
-  K extends dispatcher.WorkMessage["type"] ? (m: dispatcher.WorkMessage) => void :
-  K extends dispatcher.RetryMessage["type"] ? (m: dispatcher.RetryMessage) => void :
-  K extends dispatcher.ExitMessage["type"] ? (m: dispatcher.ExitMessage) => void :
-  never;
+{ const _: common.Eq<keyof Mapping, DispatcherMessageTypes> = true }; // Compiler will complain if this is not true
+type HandlerMapping<K extends DispatcherMessageTypes> = (m: Mapping[K]) => void;
 type HandlerMap = { [K in DispatcherMessageTypes]: HandlerMapping<K> };
 
 // This should never happen and is used as the fallback in switch/case

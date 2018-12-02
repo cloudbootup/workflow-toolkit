@@ -2,6 +2,7 @@ import * as subprocess from 'child_process';
 import * as path from 'path';
 import * as os from 'os';
 import * as processor from './processor';
+import * as common from './common';
 
 type MessageType = 'work' | 'retry' | 'exit';
 
@@ -27,15 +28,18 @@ export interface ExitMessage extends Message<'exit', -1> { }
 
 // All the dispatcher message types that processors must handle
 export type DispatcherMessage = WorkMessage | RetryMessage | ExitMessage
+{ const _: common.Eq<DispatcherMessage["type"], MessageType> = true; }
 
 // Verify at compile time that we handle all the relevant message types
+interface Mapping {
+  error: processor.ErrorMessage
+  done: processor.DoneMessage
+  retry: processor.RetryMessage
+  new: processor.NewWorkMessage
+}
 type ProcessorMessageTypes = processor.ProcessorMessage["type"];
-type HandlerMapping<K extends ProcessorMessageTypes> =
-  K extends processor.RetryMessage["type"] ? (m: processor.RetryMessage) => void :
-  K extends processor.DoneMessage["type"] ? (m: processor.DoneMessage) => void :
-  K extends processor.ErrorMessage["type"] ? (m: processor.ErrorMessage) => void :
-  K extends processor.NewWorkMessage["type"] ? (m: processor.NewWorkMessage) => void :
-  never;
+{ const _: common.Eq<keyof Mapping, ProcessorMessageTypes> = true; }
+type HandlerMapping<K extends ProcessorMessageTypes> = (m: Mapping[K]) => void;
 type HandlerMap = { [K in ProcessorMessageTypes]: HandlerMapping<K> };
 
 // Default number of workers to spawn if we are not given one
