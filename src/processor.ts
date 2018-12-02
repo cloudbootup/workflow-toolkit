@@ -1,4 +1,4 @@
-import { DispatcherMessage } from './dispatcher';
+import * as dispatcher from './dispatcher';
 
 // The types of messages we'll be working with
 type MessageType = 'done' | 'error' | 'retry' | 'new';
@@ -26,49 +26,62 @@ export interface NewWorkMessage extends Message<'new', -1> { }
 // All the different message types the dispatcher should expect from us
 export type ProcessorMessage = DoneMessage | ErrorMessage | RetryMessage | NewWorkMessage;
 
+type DispatcherMessageTypes = dispatcher.DispatcherMessage["type"];
+type HandlerMapping<K extends DispatcherMessageTypes> =
+  K extends dispatcher.WorkMessage["type"] ? (m: dispatcher.WorkMessage) => void :
+  K extends dispatcher.RetryMessage["type"] ? (m: dispatcher.RetryMessage) => void :
+  K extends dispatcher.ExitMessage["type"] ? (m: dispatcher.ExitMessage) => void :
+  never;
+type HandlerMap = { [K in DispatcherMessageTypes]: HandlerMapping<K> };
+
 // This should never happen and is used as the fallback in switch/case
 function error(m: never): never {
-  throw `Unknown message type: ${(m as DispatcherMessage).type}`;
+  throw `Unknown message type: ${(m as dispatcher.DispatcherMessage).type}`;
 }
 
 // Process the message and send a response to the dispatcher
-function processor(m: DispatcherMessage) {
+function processor(m: dispatcher.DispatcherMessage, handlerMap: HandlerMap) {
   try {
     switch (m.type) {
       case 'work': {
-        return workMessageHandler(m);
+        return handlerMap[m.type](m);
       }
       case 'retry': {
-        return retryMessageHandler(m);
+        return handlerMap[m.type](m);
       }
       case 'exit': {
-        return exitMessageHandler(m);
+        return handlerMap[m.type](m);
       }
-      default:
+      default: {
+        const n = m as dispatcher.DispatcherMessage;
         const errorMessage: ErrorMessage = {
-          id: (m as DispatcherMessage).id,
-          type: 'error',
-          message: `Unknown message type ${(m as DispatcherMessage).type}`
+          id: n.id, type: 'error', message: `Unknown message type ${n.type}`
         };
         process.send!(errorMessage);
-        return error(m); // Should never happen
+        return error(m); // Should never happen so compiler will complain if we don't cover a case
+      }
     }
-  } catch (error) {
+  } catch (error) { // Other errors can also happen so handle those accordingly
     console.error('Error when processing message in child process', m, error);
     const errorMessage: ErrorMessage = {
-      id: m.id,
-      type: 'error',
-      message: error
+      id: m.id, type: 'error', message: error
     };
     process.send!(errorMessage);
   }
 }
 
+// Attach all the handlers and make the compiler complain if we don't attach everything properly
+const handlerMap: HandlerMap = {
+  exit: exitMessageHandler,
+  retry: retryMessageHandler,
+  work: workMessageHandler
+}
+
 // Receive and process the message from the dispatcher
-process.on('message', processor);
+process.on('message', m => processor(m, handlerMap));
 
 // Handle exit messages
-function exitMessageHandler(m: import("./dispatcher").ExitMessage) {
+function exitMessageHandler(m: dispatcher.ExitMessage) {
   const response: DoneMessage = {
     id: m.id,
     type: 'done'
@@ -78,7 +91,7 @@ function exitMessageHandler(m: import("./dispatcher").ExitMessage) {
 }
 
 // Handle retry messages
-function retryMessageHandler(m: import("./dispatcher").RetryMessage) {
+function retryMessageHandler(m: dispatcher.RetryMessage) {
   const response: DoneMessage = {
     id: m.id,
     type: 'done'
@@ -87,7 +100,7 @@ function retryMessageHandler(m: import("./dispatcher").RetryMessage) {
 }
 
 // Handle work messages
-function workMessageHandler(m: import("./dispatcher").WorkMessage) {
+function workMessageHandler(m: dispatcher.WorkMessage) {
   const response: DoneMessage = {
     id: m.id,
     type: 'done'

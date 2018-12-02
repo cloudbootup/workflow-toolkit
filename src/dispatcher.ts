@@ -1,7 +1,7 @@
 import * as subprocess from 'child_process';
 import * as path from 'path';
 import * as os from 'os';
-import { ProcessorMessage } from './processor';
+import * as processor from './processor';
 
 type MessageType = 'work' | 'retry' | 'exit';
 
@@ -27,6 +27,16 @@ export interface ExitMessage extends Message<'exit', -1> { }
 
 // All the dispatcher message types that processors must handle
 export type DispatcherMessage = WorkMessage | RetryMessage | ExitMessage
+
+// Verify at compile time that we handle all the relevant message types
+type ProcessorMessageTypes = processor.ProcessorMessage["type"];
+type HandlerMapping<K extends ProcessorMessageTypes> =
+  K extends processor.RetryMessage["type"] ? (m: processor.RetryMessage) => void :
+  K extends processor.DoneMessage["type"] ? (m: processor.DoneMessage) => void :
+  K extends processor.ErrorMessage["type"] ? (m: processor.ErrorMessage) => void :
+  K extends processor.NewWorkMessage["type"] ? (m: processor.NewWorkMessage) => void :
+  never;
+type HandlerMap = { [K in ProcessorMessageTypes]: HandlerMapping<K> };
 
 // Default number of workers to spawn if we are not given one
 const defaultProcessorCount = os.cpus().length - 1;
@@ -58,19 +68,25 @@ async function dispatch(w: DispatcherMessage) {
 }
 
 // The processors can send messages back to us and we need to handle them
-async function messageListener(m: ProcessorMessage) {
+async function messageListener(m: processor.ProcessorMessage, handlerMap: HandlerMap) {
   console.log('Received processor message', m);
+  // This is a little annoying but we need to duplicate things so that the compiler can help
   switch (m.type) {
     case 'done':
+      handlerMap[m.type](m);
       break;
     case 'error':
+      handlerMap[m.type](m);
       break;
     case 'retry':
+      handlerMap[m.type](m);
       break;
     case 'new':
+      handlerMap[m.type](m);
       break;
     default:
-      throw `This can't happen ${m}`;
+      const n: never = m; // Just so the compiler will complain if the type is not never
+      throw `This can't happen ${n}`;
   }
 }
 
@@ -80,13 +96,15 @@ async function processorExit(exitCode?: number, signal?: string) {
 }
 
 // Create the sub processes and populate the worker map
-export async function start(workerCount = defaultProcessorCount) {
+export async function start(workerCount = defaultProcessorCount, handlerMap: HandlerMap) {
   if (workerCount <= 0) {
     throw `Worker count must be a positive number: ${workerCount}`;
   }
   // Create the workers
   for (let i = 0; i < workerCount; i++) {
     const worker = subprocess.fork(processorModule);
+    // Attach the message listeners
+    worker.on('message', m => messageListener(m, handlerMap));
     workers[worker.pid] = worker;
   }
 }
