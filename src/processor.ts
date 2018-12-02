@@ -25,8 +25,6 @@ export interface NewWorkMessage extends Message<'new', -1> { }
 
 // All the different message types the dispatcher should expect from us
 export type ProcessorMessage = DoneMessage | ErrorMessage | RetryMessage | NewWorkMessage;
-// Make sure we actually have a message for each type
-{ const _: common.Eq<ProcessorMessage["type"], MessageType> = true; }
 
 export interface ClientMapping {
   done: DoneMessage
@@ -34,11 +32,14 @@ export interface ClientMapping {
   retry: RetryMessage
   new: NewWorkMessage
 }
+
 {
+  // Make sure we actually have a message for each type
+  common.isTrue<common.Eq<ProcessorMessage["type"], MessageType>>(true);
   // Make sure every message type is represented
-  const _: common.Eq<keyof ClientMapping, MessageType> = true;
+  common.isTrue<common.Eq<keyof ClientMapping, MessageType>>(true);
   // Make sure the mapping is correct so we don't accidentally map 'new' to 'done'
-  const __: common.KeyTypeEq<ClientMapping> = true;
+  common.isTrue<common.KeyTypeEq<ClientMapping>>(true);
 }
 
 type DispatcherMessageTypes = dispatcher.DispatcherMessage["type"];

@@ -27,18 +27,21 @@ export interface ExitMessage extends Message<'exit', -1> { }
 
 // All the dispatcher message types that processors must handle
 export type DispatcherMessage = WorkMessage | RetryMessage | ExitMessage
-{ const _: common.Eq<DispatcherMessage["type"], MessageType> = true; }
 
 export interface ClientMapping {
   exit: ExitMessage
   retry: RetryMessage
   work: WorkMessage
 }
+
+// Now specify all the invariants that the messages must satisfy
 {
-  // Make sure every message type is represented
-  const _: common.Eq<keyof ClientMapping, MessageType> = true;
-  // Make sure the keys and types actually match so we don't accidentally map 'work' to 'done'
-  const __: common.KeyTypeEq<ClientMapping> = true;
+  // Dispatcher messages must implement all the message types
+  common.isTrue<common.Eq<DispatcherMessage["type"], MessageType>>(true);
+  // Client mapping must represent every message type
+  common.isTrue<common.Eq<keyof ClientMapping, MessageType>>(true);
+  // Client mapping keys and types must actually match so we don't accidentally map 'work' to 'done'
+  common.isTrue<common.KeyTypeEq<ClientMapping>>(true);
 }
 
 // Verify at compile time that we handle all the relevant message types
