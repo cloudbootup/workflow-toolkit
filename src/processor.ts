@@ -1,29 +1,37 @@
 import { DispatcherMessage } from './dispatcher';
 
-interface Message {
-  id: number
+// The types of messages we'll be working with
+type MessageType = 'done' | 'error' | 'retry' | 'new';
+
+// Every message must have an id and a type
+interface Message<S extends MessageType> {
+  id: S extends 'new' ? -1 : number
+  type: S
 }
 
-export interface DoneMessage extends Message {
-  type: 'done'
-}
+// Tells the dispatcher we are done
+export interface DoneMessage extends Message<'done'> { }
 
-export interface ErrorMessage extends Message {
-  type: 'error'
+// Tells the dispatcher there was an error
+export interface ErrorMessage extends Message<'error'> {
   message: string
 }
 
-export interface RetryMessage extends Message {
-  type: 'retry'
-}
+// This tells the dispatcher we want to retry this work again
+export interface RetryMessage extends Message<'retry'> { }
 
-export type ProcessorMessage = DoneMessage | ErrorMessage | RetryMessage;
+// Tells the dispatcher to add and distribute new work
+export interface NewWorkMessage extends Message<'new'> { }
 
+// All the different message types the dispatcher should expect from us
+export type ProcessorMessage = DoneMessage | ErrorMessage | RetryMessage | NewWorkMessage;
+
+// This should never happen and is used as the fallback in switch/case
 function error(m: never): never {
   throw `Unknown message type: ${(m as DispatcherMessage).type}`;
 }
 
-// Process the message and then send back a proper response
+// Process the message and send a response to the dispatcher
 function processor(m: DispatcherMessage) {
   try {
     switch (m.type) {
@@ -57,7 +65,7 @@ function processor(m: DispatcherMessage) {
 }
 
 // Receive and process the message from the dispatcher
-process.on('message', (m: DispatcherMessage) => processor(m));
+process.on('message', processor);
 
 // Handle exit messages
 function exitMessageHandler(m: import("./dispatcher").ExitMessage) {
