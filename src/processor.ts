@@ -5,9 +5,8 @@ import * as common from './common';
 type MessageType = 'done' | 'error' | 'retry' | 'new';
 
 // Every message must have an id and a type
-interface Message<S extends MessageType, I extends number> {
+interface Message<S extends MessageType, I extends number> extends common.Typed<S> {
   id: I
-  type: S
 }
 
 // Tells the dispatcher we are done
@@ -39,12 +38,7 @@ export interface ClientMapping {
   // Make sure every message type is represented
   const _: common.Eq<keyof ClientMapping, MessageType> = true;
   // Make sure the mapping is correct so we don't accidentally map 'new' to 'done'
-  const __: { [K in keyof ClientMapping]: common.Eq<K, ClientMapping[K]["type"]> } = {
-    done: true,
-    error: true,
-    retry: true,
-    new: true
-  };
+  const __: common.KeyTypeEq<ClientMapping> = true;
 }
 
 type DispatcherMessageTypes = dispatcher.DispatcherMessage["type"];

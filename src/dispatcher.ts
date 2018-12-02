@@ -7,9 +7,8 @@ import * as common from './common';
 type MessageType = 'work' | 'retry' | 'exit';
 
 // Every message must have an ID so the processor can send a response
-interface Message<S extends MessageType, I extends number> {
+interface Message<S extends MessageType, I extends number> extends common.Typed<S> {
   id: I
-  type: S
 }
 
 // Ask the processor to do some work
@@ -39,11 +38,7 @@ export interface ClientMapping {
   // Make sure every message type is represented
   const _: common.Eq<keyof ClientMapping, MessageType> = true;
   // Make sure the keys and types actually match so we don't accidentally map 'work' to 'done'
-  const __: { [K in keyof ClientMapping]: common.Eq<K, ClientMapping[K]["type"]> } = {
-    exit: true,
-    retry: true,
-    work: true
-  }
+  const __: common.KeyTypeEq<ClientMapping> = true;
 }
 
 // Verify at compile time that we handle all the relevant message types
