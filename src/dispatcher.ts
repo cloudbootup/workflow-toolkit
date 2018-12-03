@@ -50,7 +50,7 @@ type HandlerMapping<K> = K extends ProcessorMessageTypes ? (m: processor.ClientM
 type HandlerMap = { [K in ProcessorMessageTypes]: HandlerMapping<K> };
 
 // Default number of workers to spawn if we are not given one
-const defaultProcessorCount = os.cpus().length - 1;
+export const defaultProcessorCount = os.cpus().length - 1;
 
 // Map the process ID to the subprocess object
 type WorkerMap = { [index: number]: subprocess.ChildProcess };
@@ -61,22 +61,13 @@ const workers: WorkerMap = {};
 // The module that will be forked for processing work items
 const processorModule = path.join(__dirname, 'processor');
 
-// Send a message to the processors
-async function dispatch(w: DispatcherMessage) {
-  const processor = subprocess.fork(processorModule);
-  // Attach the response handler
-  processor.on('message', messageListener);
-  for (let i = 0; i < 2; i++) {
-    processor.send(w, error => {
-      if (error) {
-        console.error('Something went wrong when trying to send work for processing', w);
-      }
-    });
-  }
-  const exitMessage: ExitMessage = { id: -1, type: 'exit' };
-  processor.send(exitMessage);
-  processor.once('exit', processorExit);
-}
+// Default handler for testing purposes
+export const defaultHandlers: HandlerMap = {
+  error: m => { console.log('Receive error message', m); },
+  retry: m => { console.log('Received retry message', m); },
+  done: m => { console.log('Received done message', m); },
+  new: m => { console.log('Received new message', m); }
+};
 
 // The processors can send messages back to us and we need to handle them
 async function messageListener(m: processor.ProcessorMessage, handlerMap: HandlerMap) {
@@ -97,25 +88,29 @@ async function messageListener(m: processor.ProcessorMessage, handlerMap: Handle
       break;
     default:
       const n: never = m; // Just so the compiler will complain if the type is not never
-      throw `This can't happen ${n}`;
+      throw new Error(`This can't happen ${n}`);
   }
 }
 
 // Handle processor exit messages
-async function processorExit(exitCode?: number, signal?: string) {
-  console.log(`Processor finished with exit code = ${exitCode} and signal = ${signal}`);
+async function processorExit(exitCode: number | null, signal: string | null, pid: number) {
+  console.log(`Processor ${pid} finished with exit code = ${exitCode} and signal = ${signal}`);
 }
 
 // Create the sub processes and populate the worker map
-export async function start(workerCount = defaultProcessorCount, handlerMap: HandlerMap) {
+export async function start(workerCount: number = defaultProcessorCount, handlerMap: HandlerMap = defaultHandlers) {
   if (workerCount <= 0) {
-    throw `Worker count must be a positive number: ${workerCount}`;
+    throw new Error(`Worker count must be a positive number: ${workerCount}`);
   }
   // Create the workers
   for (let i = 0; i < workerCount; i++) {
     const worker = subprocess.fork(processorModule);
+    const pid = worker.pid;
     // Attach the message listeners
     worker.on('message', m => messageListener(m, handlerMap));
-    workers[worker.pid] = worker;
+    // The exit listener
+    worker.once('exit', (code, signal) => processorExit(code, signal, pid));
+    // Put the worker in the worker mapping
+    workers[pid] = worker;
   }
 }

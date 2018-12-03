@@ -21,7 +21,9 @@ export interface ErrorMessage extends Message<'error', number> {
 export interface RetryMessage extends Message<'retry', number> { }
 
 // Tells the dispatcher to add and distribute new work
-export interface NewWorkMessage extends Message<'new', -1> { }
+export interface NewWorkMessage extends Message<'new', -1> {
+  workItems: unknown[]
+}
 
 // All the different message types the dispatcher should expect from us
 export type ProcessorMessage = DoneMessage | ErrorMessage | RetryMessage | NewWorkMessage;
@@ -48,7 +50,7 @@ type HandlerMap = { [K in DispatcherMessageTypes]: HandlerMapping<K> };
 
 // This should never happen and is used as the fallback in switch/case
 function error(m: never): never {
-  throw `Unknown message type: ${(m as dispatcher.DispatcherMessage).type}`;
+  throw new Error(`Unknown message type: ${(m as dispatcher.DispatcherMessage).type}`);
 }
 
 // Process the message and send a response to the dispatcher
@@ -82,15 +84,11 @@ function processor(m: dispatcher.DispatcherMessage, handlerMap: HandlerMap) {
   }
 }
 
-// Attach all the handlers and make the compiler complain if we don't attach everything properly
-const handlerMap: HandlerMap = {
-  exit: exitMessageHandler,
-  retry: retryMessageHandler,
-  work: workMessageHandler
-}
-
-// Receive and process the message from the dispatcher
-process.on('message', m => processor(m, handlerMap));
+/*
+  Modify these functions if you want to do some other kind of work. This is the
+  code and configuration for the workers. The dispatcher doesn't do any runtime
+  configuration or module loading other than whatever is configured here.
+*/
 
 // Handle exit messages
 function exitMessageHandler(m: dispatcher.ExitMessage) {
@@ -119,3 +117,13 @@ function workMessageHandler(m: dispatcher.WorkMessage) {
   };
   return process.send!(response);
 }
+
+// Attach all the handlers and make the compiler complain if we don't attach everything properly
+const handlerMap: HandlerMap = {
+  exit: exitMessageHandler,
+  retry: retryMessageHandler,
+  work: workMessageHandler
+}
+
+// Receive and process the message from the dispatcher
+process.on('message', m => processor(m, handlerMap));
